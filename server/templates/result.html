@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Wheat segmentation - results</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .box { border:1px solid #ddd; padding:8px; border-radius:6px; }
+    img { max-width: 800px; display:block; }
+  </style>
+</head>
+<body>
+  <h2>Results</h2>
+  <p><a href="/">← upload another image</a></p>
+  <div class="row">
+    <div class="box">
+      <h4>Original</h4>
+      <img src="{{ input_image }}" alt="original">+
+    </div>
+    <div class="box">
+      <h4>Overlay</h4>
+      <img src="{{ overlay_image }}" alt="overlay">
+    </div>
+    <div class="box">
+      <h4>Mask (color)</h4>
+      <img src="{{ mask_color_image }}" alt="mask color">
+    </div>
+    <div class="box">
+      <h4>Mask (raw)</h4>
+      <img src="{{ mask_raw_image }}" alt="mask raw">
+    </div>
+  </div>
+</body>
+</html>

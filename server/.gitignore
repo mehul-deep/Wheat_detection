@@ -1,0 +1,30 @@
+@'
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+*.egg-info/
+.dist/
+.build/
+.env
+.venv
+**/.venv/
+**/env/
+**/venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Data / artifacts (tweak to your project)
+*.log
+*.tmp
+outputs/
+data/
+'@ | Out-File -Encoding utf8 .gitignore

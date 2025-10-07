@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./model.pth:/app/model.pth:ro
+      - ./uploads:/app/uploads
+      - ./static/results:/app/static/results
+    environment:
+      - MODEL_PATH=/app/model.pth
+      - IMG_SIZE=1024
+      - DEVICE=cpu

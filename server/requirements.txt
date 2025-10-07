@@ -1,0 +1,6 @@
+flask>=2.0
+torch>=2.0.0  # CPU wheel usually OK; if you need a specific torch, install explicitly
+albumentations>=1.0.3
+opencv-python-headless>=4.7.0
+numpy>=1.22
+Werkzeug>=2.0
