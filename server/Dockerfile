@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential git curl libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    build-essential git curl libglib2.0-0 libgl1 libsm6 libxext6 libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

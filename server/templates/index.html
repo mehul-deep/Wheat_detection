@@ -20,6 +20,11 @@
     </form>
     <hr>
     <p>Notes: max upload 20MB. Default model input size: <strong>{{ config_img_size if config_img_size else "1024" }}</strong></p>
+    {% if yolo_enabled %}
+    <p>YOLO detections enabled using <code>{{ yolo_model_path }}</code>.</p>
+    {% else %}
+    <p>YOLO detections unavailable. Uploads will return segmentation only.</p>
+    {% endif %}
   </div>
 </body>
 </html>

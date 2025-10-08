@@ -6,9 +6,13 @@ services:
       - "5000:5000"
     volumes:
       - ./model.pth:/app/model.pth:ro
+      - ./best.pt:/app/best.pt:ro
       - ./uploads:/app/uploads
       - ./static/results:/app/static/results
     environment:
       - MODEL_PATH=/app/model.pth
+      - YOLO_MODEL_PATH=/app/best.pt
       - IMG_SIZE=1024
       - DEVICE=cpu
+      - YOLO_DISEASE_CLASS=2
+      - YOLO_WHEAT_CLASSES=1,2

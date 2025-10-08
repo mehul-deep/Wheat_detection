@@ -8,6 +8,9 @@
     .row { display:flex; gap:12px; flex-wrap:wrap; }
     .box { border:1px solid #ddd; padding:8px; border-radius:6px; }
     img { max-width: 800px; display:block; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+    th { background: #f4f4f4; }
   </style>
 </head>
 <body>
@@ -16,7 +19,7 @@
   <div class="row">
     <div class="box">
       <h4>Original</h4>
-      <img src="{{ input_image }}" alt="original">+
+      <img src="{{ input_image }}" alt="original">
     </div>
     <div class="box">
       <h4>Overlay</h4>
@@ -30,6 +33,56 @@
       <h4>Mask (raw)</h4>
       <img src="{{ mask_raw_image }}" alt="mask raw">
     </div>
+    {% if yolo_image %}
+    <div class="box">
+      <h4>YOLO detections</h4>
+      <img src="{{ yolo_image }}" alt="yolo detections">
+    </div>
+    {% endif %}
+    {% if yolo_detections %}
+    <div class="box">
+      <h4>Detection details</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Confidence</th>
+            <th>Box&nbsp;(x1,y1,x2,y2)</th>
+            <th>Wheat&nbsp;px</th>
+            <th>Disease&nbsp;px</th>
+            <th>Disease&nbsp;%&nbsp;(bbox)</th>
+            <th>Disease&nbsp;%&nbsp;(wheat)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for det in yolo_detections %}
+          <tr>
+            <td>{{ det.label }}</td>
+            <td>{% if det.confidence is not none %}{{ '%.2f'|format(det.confidence) }}{% else %}-{% endif %}</td>
+            <td>{{ det.bbox }}</td>
+            <td>{% if det.wheat_pixels is not none %}{{ det.wheat_pixels }}{% else %}-{% endif %}</td>
+            <td>{% if det.disease_pixels is not none %}{{ det.disease_pixels }}{% else %}-{% endif %}</td>
+            <td>
+              {% if det.disease_fraction_bbox is not none %}
+                {{ '%.1f'|format(det.disease_fraction_bbox * 100) }}%
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if det.disease_fraction_wheat is not none %}
+                {{ '%.1f'|format(det.disease_fraction_wheat * 100) }}%
+              {% else %}-{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% elif yolo_error %}
+    <div class="box">
+      <h4>YOLO detections</h4>
+      <p style="color:#b00;">Failed to compute detections: {{ yolo_error }}</p>
+    </div>
+    {% endif %}
   </div>
 </body>
 </html>

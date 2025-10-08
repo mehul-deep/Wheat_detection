@@ -25,3 +25,23 @@ docker run --rm -p 5000:5000 \
   -e MODEL_PATH=/app/model.pth \
   wheat-infer:latest
 
+
+
+
+  docker run --rm \                                                                                                                     
+    -p 5000:5000 \                                                                                                                      
+    -v "$(pwd)/model.pth:/app/model.pth:ro" \                                                                                           
+    -v "$(pwd)/best.pt:/app/best.pt:ro" \
+    -v "$(pwd)/uploads:/app/uploads" \                                                                                                  
+    -v "$(pwd)/static/results:/app/static/results" \
+    -e MODEL_PATH=/app/model.pth \                                                                                                      
+    -e YOLO_MODEL_PATH=/app/best.pt \
+    -e IMG_SIZE=1024 \                                                                                                                  
+    -e DEVICE=cpu \                                                                                                                     
+    -e YOLO_DEVICE=cpu \                                                                                                                
+    -e YOLO_CONF=0.25 \                                                                                                                 
+    -e YOLO_IOU=0.45 \                                                                                                                  
+    -e YOLO_MAX_DET=100 \                                                                                                               
+    -e YOLO_DISEASE_CLASS=2\                                                                                                           
+    -e YOLO_WHEAT_CLASSES=1,2\                                                                                                         
+    wheat-infer:latest 
