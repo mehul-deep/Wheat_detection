@@ -135,13 +135,11 @@ def predict():
     stem = Path(filename).stem
     overlay_out = out_dir / f"{stem}_overlay.png"
     mask_color_out = out_dir / f"{stem}_mask_color.png"
-    mask_raw_out = out_dir / f"{stem}_mask_raw.png"
     yolo_out = out_dir / f"{stem}_yolo_det.png"
 
     import cv2
     cv2.imwrite(str(overlay_out), cv2.cvtColor(ov, cv2.COLOR_RGB2BGR))
     cv2.imwrite(str(mask_color_out), cv2.cvtColor(colorize_mask(pred), cv2.COLOR_RGB2BGR))
-    cv2.imwrite(str(mask_raw_out), pred.astype("uint8"))
 
     yolo_image_url = None
     yolo_detections = []
@@ -239,7 +237,7 @@ def predict():
                            input_image=url_for("uploaded_file", uid=uid, filename=filename),
                            overlay_image=url_for("result_file", uid=uid, filename=overlay_out.name),
                            mask_color_image=url_for("result_file", uid=uid, filename=mask_color_out.name),
-                           mask_raw_image=url_for("result_file", uid=uid, filename=mask_raw_out.name),
+                           config_img_size=IMG_SIZE,
                            yolo_image=yolo_image_url,
                            yolo_detections=yolo_detections,
                            yolo_error=yolo_error)
