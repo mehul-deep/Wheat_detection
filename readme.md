@@ -958,7 +958,7 @@
           │   ├─ Attention U‑Net checkpoint (model.pth)               │
           │   └─ YOLO checkpoint (best.pt via Ultralytics)            │                                                                 
           │                                                           │                                                                 
-  /predict request:                                                    │                                                                
+  /predict request:                                                   │                                                                
    1. save upload → uploads/<uuid>/<file>                             │
    2. run UNet inference (infer.py)                                   │                                                                 
          ├─ Albumentations transform (LongestMaxSize + Pad + Normalize)                                                                 
