@@ -11,6 +11,121 @@
 
 
 
+
+
+Great! Disabling Uniform bucket-level access did the trick—now blob.make_public() can run, so the workflow is:
+
+  - Upload hits Cloud Run
+  - Inference produces overlay/mask + YOLO detections
+  - Artifacts get saved to gs://wheat-detect-uploads-deepm/uploads/<uid>/... and gs://wheat-detect-results-deepm/results/<uid>/...
+  - Public URLs load immediately in the results page
+
+  Next steps if you want to polish things further:
+
+  1. Security Hardening – If you eventually want the buckets private again, we can switch to signed URLs by mounting a service-account
+     key (or use Secret Manager + Cloud Run “service account token creator”). Just say the word.
+  2. Warm Starts – Set min instances on Cloud Run (gcloud run services update wheat-web --min-instances=1) for faster responses if
+     inference latency is critical.
+  3. Monitoring – Hook up Cloud Logging alerts or export logs to BigQuery/GCS for audit tracking.
+
+  Otherwise, the deployed endpoint at https://wheat-web-795033415293.us-central1.run.app is ready to use. Let me know if you want help
+  automating builds, adding auth, or anything else.
+
+
+Once you change any files (frontend, backend, Dockerfile, etc.), the flow is:
+
+  1. Edit locally
+     Make your tweaks (e.g., update templates/index.html or CSS). Commit if you use git.
+  2. Rebuild the container
+     From /mnt/d/Duplicate/Wheat_detection/server:
+
+     gcloud builds submit \
+       --tag us-central1-docker.pkg.dev/wheat-detection-prod/wheat-detect/web:latest
+  3. Redeploy Cloud Run
+     Use the same env file:
+
+     gcloud run deploy wheat-web \
+       --image us-central1-docker.pkg.dev/wheat-detection-prod/wheat-detect/web:latest \
+       --region us-central1 \
+       --platform managed \
+       --allow-unauthenticated \
+       --cpu 2 --memory 4Gi \
+       --env-vars-file run-env.yaml
+  4. Test
+     Hit the Cloud Run URL and confirm your changes are live. If something fails, run gcloud run services logs read wheat-web … to
+     check.
+
+  That’s it—you repeat steps 1–3 whenever you need an update. If you want to automate this, we can set up a Cloud Build trigger so
+  pushing to Git Hub automatically rebuilds/redeploys. Let me know if you’d like that.
+
+
+
+
+
+
+
+
+ Here’s a ready-to-save recap you can drop into your notes:
+
+  ———
+
+  Wheat Detection Cloud Recap
+
+  - Service: wheat-web on Cloud Run (region us-central1). Active URL: https://wheat-web-795033415293.us-central1.run.app.
+  - Storage:
+      - gs://wheat-detect-uploads-deepm for originals (uploads/<uid>/...).
+      - gs://wheat-detect-results-deepm for overlays/masks (results/<uid>/...).
+      - Uniform bucket-level access is OFF so blob.make_public() works; URLs are public.
+  - Deploy workflow:
+
+    # from /mnt/d/Duplicate/Wheat_detection/server
+    gcloud builds submit \
+      --tag us-central1-docker.pkg.dev/wheat-detection-prod/wheat-detect/web:latest
+
+    gcloud run deploy wheat-web \
+      --image us-central1-docker.pkg.dev/wheat-detection-prod/wheat-detect/web:latest \
+      --region us-central1 \
+      --platform managed \
+      --allow-unauthenticated \
+      --cpu 2 --memory 4Gi \
+      --env-vars-file run-env.yaml
+    (run-env.yaml stores STORAGE_BACKEND=gcs, bucket names, GCS_MAKE_PUBLIC=true, etc.)
+    (run-env.yaml stores STORAGE_BACKEND=gcs, bucket names, GCS_MAKE_PUBLIC=true, etc.)
+  - Logs: gcloud run services logs read wheat-web --region us-central1 --limit 50.
+  - Next steps (if needed later):
+      - Add a custom domain via gcloud run domain-mappings.
+      - If buckets need to be private again, set GCS_MAKE_PUBLIC=false, mount a service-account key for signed URLs.
+      - Consider min instances or CI/CD if traffic grows.
+
+  ———
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             are attached to the detection record.                                                                                       
           - YOLO’s annotated plot is saved as <stem>_yolo_det.png. Any detector error is captured without breaking the response.        
       - Response renders result.html showing original, segmentation outputs, annotated detections, and a summary table with box         

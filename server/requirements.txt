@@ -5,3 +5,4 @@ opencv-python-headless>=4.7.0
 numpy>=1.22
 Werkzeug>=2.0
 ultralytics>=8.3.0
+google-cloud-storage>=2.14.0
