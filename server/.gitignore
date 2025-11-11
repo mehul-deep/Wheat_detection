@@ -1,6 +1,7 @@
 @'
 # Python
 **/__pycache__/
+
 **/*.py[cod]
 **/*.pyo
 **/*.pyd
@@ -18,6 +19,7 @@
 .idea/
 .DS_Store
 Thumbs.db
+._*
 
 # Node
 node_modules/
