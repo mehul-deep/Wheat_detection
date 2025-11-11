@@ -537,6 +537,7 @@ def predict():
                     'filename': filename,
                     'timestamp': datetime.utcnow().isoformat(),
                     'detectionCount': len(yolo_detections) if yolo_detections else 0,
+                    'yolo_detections': yolo_detections,
                     'inputImageUrl': input_image_url,
                     'overlayImageUrl': overlay_image_url,
                     'maskImageUrl': mask_color_image_url,
@@ -632,7 +633,7 @@ def view_result(uid):
                                mask_color_image=data.get('maskImageUrl'),
                                config_img_size=IMG_SIZE,
                                yolo_image=data.get('yoloImageUrl'),
-                               yolo_detections=[],  # Not stored in Firestore
+                               yolo_detections=data.get('yolo_detections', []),
                                yolo_error=None)
     except Exception as e:
         print(f"Error loading result: {e}")
