@@ -4,25 +4,29 @@ app.py - simple Flask web frontend to upload images and run infer.py's model.
 
 Behavior:
  - loads model once at startup (AttentionUNet loaded via infer.py helpers)
- - /         GET: show upload form
+ - /         GET: show upload form (requires authentication)
  - /predict  POST: accept image file, run inference, return page showing results (overlay + masks)
  - static results are saved under ./static/results/<uuid>/
 
 Important:
  - Keep infer.py in the same directory so we can import helpers.
+ - Firebase Authentication required for all routes except /login
 """
 import math
 import os
 import shutil
 import tempfile
 import uuid
-from datetime import timedelta
+from datetime import timedelta, datetime
 from pathlib import Path
 from typing import Optional
+from functools import wraps
 
 import numpy as np
-from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash
+from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash, session, jsonify
 from werkzeug.utils import secure_filename
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth, firestore
 
 try:
     from ultralytics import YOLO
@@ -126,7 +130,8 @@ class GCSStorage(StorageBackend):
         self.results_prefix = self._normalize_prefix(results_prefix)
         self.make_public = make_public
         self.signed_url_ttl = signed_url_ttl
-        self._signing_credentials = self._get_signing_credentials()
+        # Only get signing credentials if we need signed URLs (not making public)
+        self._signing_credentials = None if make_public else self._get_signing_credentials()
 
     @staticmethod
     def _normalize_prefix(prefix: Optional[str]) -> str:
@@ -178,6 +183,55 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "change-me-for-production")
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB limit (adjust)
 
+# Initialize Firebase Admin SDK
+FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "wheat-detection-cb988")
+print(f"[FIREBASE] Initializing Firebase Admin SDK for project: {FIREBASE_PROJECT_ID}")
+try:
+    # Try to use default credentials (works on Cloud Run)
+    firebase_admin.initialize_app(options={'projectId': FIREBASE_PROJECT_ID})
+    print("[FIREBASE] Firebase Admin initialized with default credentials ✓")
+except Exception as e:
+    print(f"[FIREBASE] Initialization with defaults failed: {e}")
+    # Fallback: try loading from service account file
+    firebase_creds_path = os.environ.get("FIREBASE_CREDENTIALS_PATH")
+    if firebase_creds_path and Path(firebase_creds_path).exists():
+        cred = credentials.Certificate(firebase_creds_path)
+        firebase_admin.initialize_app(cred)
+        print(f"[FIREBASE] Firebase Admin initialized with credentials from {firebase_creds_path} ✓")
+    else:
+        print("[FIREBASE] ⚠️  WARNING: Firebase Admin not initialized - authentication will not work")
+
+# Get Firestore client
+print(f"[FIRESTORE] Initializing Firestore client for project: {FIREBASE_PROJECT_ID}...")
+try:
+    # Try using firebase_admin's firestore client first
+    from google.cloud import firestore as gcp_firestore
+    from google.auth import default
+
+    # Get default credentials
+    credentials, project = default()
+    print(f"[FIRESTORE] Using credentials for project: {project}")
+
+    # Initialize Firestore with explicit project
+    db = gcp_firestore.Client(project=FIREBASE_PROJECT_ID, credentials=credentials)
+    print("[FIRESTORE] Firestore client initialized ✓")
+except Exception as e:
+    print(f"[FIRESTORE] ⚠️  Firestore initialization failed: {e}")
+    print("[FIRESTORE] Will run without Firestore (history won't be saved)")
+    import traceback
+    traceback.print_exc()
+    db = None
+
+# Authentication decorator
+def require_auth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 if STORAGE_BACKEND == "gcs":
     storage_backend = GCSStorage(
         upload_bucket=GCS_UPLOAD_BUCKET,
@@ -227,17 +281,119 @@ def allowed_file(filename):
     return Path(filename).suffix.lower() in ALLOWED_EXT
 
 
+@app.route("/login", methods=["GET"])
+def login():
+    """Show login/signup page"""
+    return render_template("login.html")
+
+
+@app.route("/test", methods=["GET", "POST"])
+def test():
+    """Test endpoint to verify server is responding"""
+    print("[TEST] Test endpoint called")
+    return jsonify({'status': 'ok', 'message': 'Server is working!'}), 200
+
+
+@app.route("/auth/verify", methods=["POST"])
+def verify_token():
+    """Verify Firebase ID token and create session"""
+    try:
+        print(f"[AUTH] Received verify request")
+        print(f"[AUTH] Request data: {request.json}")
+
+        id_token = request.json.get('idToken')
+        display_name = request.json.get('displayName')
+
+        if not id_token:
+            print("[AUTH] ERROR: No token provided")
+            return jsonify({'error': 'No token provided'}), 400
+
+        print(f"[AUTH] Verifying token (length: {len(id_token)})")
+
+        # Verify the token with Firebase Admin SDK
+        decoded_token = firebase_auth.verify_id_token(id_token)
+        user_id = decoded_token['uid']
+        user_email = decoded_token.get('email')
+
+        print(f"[AUTH] Token verified successfully for user: {user_id}")
+
+        # Create or update user document in Firestore
+        if db and display_name:
+            try:
+                print(f"[AUTH] Creating/updating user document in Firestore for {user_id}")
+                user_ref = db.collection('users').document(user_id)
+                user_doc = user_ref.get()
+
+                if not user_doc.exists:
+                    # New user - create document
+                    user_ref.set({
+                        'email': user_email,
+                        'displayName': display_name,
+                        'uploadCount': 0,
+                        'createdAt': datetime.utcnow().isoformat(),
+                        'lastLogin': datetime.utcnow().isoformat()
+                    })
+                    print(f"[AUTH] Created new user document for {user_id}")
+                else:
+                    # Existing user - update last login
+                    user_ref.update({'lastLogin': datetime.utcnow().isoformat()})
+                    print(f"[AUTH] Updated last login for {user_id}")
+            except Exception as firestore_error:
+                print(f"[AUTH] Warning: Firestore update failed: {firestore_error}")
+                # Don't fail the auth if Firestore fails
+
+        # Store user_id in session
+        session['user_id'] = user_id
+        session['email'] = user_email
+        session['name'] = display_name or decoded_token.get('name', user_email.split('@')[0] if user_email else 'User')
+
+        print(f"[AUTH] Session created for user: {user_id}")
+
+        return jsonify({'status': 'success', 'user_id': user_id}), 200
+
+    except Exception as e:
+        print(f"[AUTH] ERROR: Token verification failed: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Invalid token', 'details': str(e)}), 401
+
+
+@app.route("/auth/logout", methods=["POST"])
+def logout():
+    """Clear session"""
+    session.clear()
+    return jsonify({'status': 'success'}), 200
+
+
 @app.route("/", methods=["GET"])
+@require_auth
 def index():
-    return render_template("index.html",
+    return render_template("index_auth.html",
                            config_img_size=IMG_SIZE,
                            yolo_enabled=bool(yolo_model),
                            yolo_model_path=YOLO_MODEL_PATH if yolo_model else None)
 
 
-@app.route("/predict", methods=["POST"])
+@app.route("/predict", methods=["GET", "POST"])
+@require_auth
 def predict():
+    print(f"[PREDICT] Request method: {request.method}")
+    print(f"[PREDICT] Session user_id: {session.get('user_id')}")
+    print(f"[PREDICT] Request headers: {dict(request.headers)}")
+
+    # If GET request, redirect to index
+    if request.method == "GET":
+        print("[PREDICT] GET request received - redirecting to index")
+        flash("Please upload an image to get predictions")
+        return redirect(url_for("index"))
+
+    user_id = session.get('user_id')
+    if not user_id:
+        print("[PREDICT] No user_id in session!")
+        return jsonify({'error': 'Unauthorized'}), 401
+
     if "image" not in request.files:
+        print("[PREDICT] No image in request.files")
         flash("No file part in request")
         return redirect(url_for("index"))
     f = request.files["image"]
@@ -370,6 +526,53 @@ def predict():
         if yolo_written and yolo_out.exists():
             yolo_image_url = storage_backend.save_result(uid, yolo_out.name, yolo_out)
 
+        # Save to Firestore
+        print(f"[FIRESTORE] About to save upload. db={db is not None}, user_id={user_id}, uid={uid}")
+        if db:
+            try:
+                print(f"[FIRESTORE] Inside db block, attempting to save...")
+                upload_data = {
+                    'userId': user_id,
+                    'uid': uid,
+                    'filename': filename,
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'detectionCount': len(yolo_detections) if yolo_detections else 0,
+                    'inputImageUrl': input_image_url,
+                    'overlayImageUrl': overlay_image_url,
+                    'maskImageUrl': mask_color_image_url,
+                    'yoloImageUrl': yolo_image_url,
+                    'hasError': bool(yolo_error)
+                }
+                print(f"[FIRESTORE] Calling db.collection('uploads').document({uid}).set()")
+                db.collection('uploads').document(uid).set(upload_data)
+                print(f"[FIRESTORE] ✓ Saved upload {uid} to Firestore for user {user_id}")
+
+                # Update user stats
+                from google.cloud.firestore import Increment
+                user_ref = db.collection('users').document(user_id)
+                user_doc = user_ref.get()
+                if user_doc.exists:
+                    user_ref.update({
+                        'uploadCount': Increment(1),
+                        'lastUpload': datetime.utcnow().isoformat()
+                    })
+                else:
+                    user_ref.set({
+                        'email': session.get('email', ''),
+                        'displayName': session.get('name', ''),
+                        'uploadCount': 1,
+                        'createdAt': datetime.utcnow().isoformat(),
+                        'lastUpload': datetime.utcnow().isoformat()
+                    })
+                print(f"[FIRESTORE] ✓ User stats updated for {user_id}")
+            except Exception as e:
+                print(f"[FIRESTORE] ❌ Failed to save to Firestore: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"[FIRESTORE] ⚠️  db is None, skipping Firestore save")
+
+        # Render result page directly (session storage doesn't work - too large)
         return render_template("result.html",
                                uid=uid,
                                input_image=input_image_url,
@@ -381,6 +584,60 @@ def predict():
                                yolo_error=yolo_error)
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
+
+
+@app.route("/result/<uid>")
+@require_auth
+def view_result(uid):
+    """View a previous result by UID"""
+    user_id = session.get('user_id')
+
+    # Try session first (for fresh results or when Firestore is unavailable)
+    session_key = f'result_{uid}'
+    if session_key in session:
+        print(f"[RESULT] Loading result from session for uid: {uid}")
+        data = session[session_key]
+        return render_template("result.html",
+                               uid=uid,
+                               input_image=data.get('input_image'),
+                               overlay_image=data.get('overlay_image'),
+                               mask_color_image=data.get('mask_color_image'),
+                               config_img_size=IMG_SIZE,
+                               yolo_image=data.get('yolo_image'),
+                               yolo_detections=data.get('yolo_detections', []),
+                               yolo_error=data.get('yolo_error'))
+
+    # Fall back to Firestore for historical results
+    if not db:
+        flash("Result not found")
+        return redirect(url_for("index"))
+
+    try:
+        print(f"[RESULT] Loading result from Firestore for uid: {uid}")
+        doc = db.collection('uploads').document(uid).get()
+        if not doc.exists:
+            flash("Result not found")
+            return redirect(url_for("index"))
+
+        data = doc.to_dict()
+        # Verify this upload belongs to the current user
+        if data.get('userId') != user_id:
+            flash("Unauthorized access")
+            return redirect(url_for("index"))
+
+        return render_template("result.html",
+                               uid=uid,
+                               input_image=data.get('inputImageUrl'),
+                               overlay_image=data.get('overlayImageUrl'),
+                               mask_color_image=data.get('maskImageUrl'),
+                               config_img_size=IMG_SIZE,
+                               yolo_image=data.get('yoloImageUrl'),
+                               yolo_detections=[],  # Not stored in Firestore
+                               yolo_error=None)
+    except Exception as e:
+        print(f"Error loading result: {e}")
+        flash("Result not found")
+        return redirect(url_for("index"))
 
 
 @app.route("/uploads/<uid>/<filename>")

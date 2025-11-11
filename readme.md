@@ -59,6 +59,8 @@ Once you change any files (frontend, backend, Dockerfile, etc.), the flow is:
   pushing to Git Hub automatically rebuilds/redeploys. Let me know if you’d like that.
 
 
+> Perfect, but one issue here, when i type in a password or email or anything in sign up or login, I cant see anything typed in is it the color is
+  different or white? 
 
 
 
@@ -76,6 +78,12 @@ Once you change any files (frontend, backend, Dockerfile, etc.), the flow is:
       - gs://wheat-detect-uploads-deepm for originals (uploads/<uid>/...).
       - gs://wheat-detect-results-deepm for overlays/masks (results/<uid>/...).
       - Uniform bucket-level access is OFF so blob.make_public() works; URLs are public.
+  - **NEW: Firebase Authentication Integration**
+      - Firebase project: wheat-detection-cb988
+      - Email/Password authentication enabled
+      - Firestore database (us-central1) stores user profiles and upload history
+      - Users must login to access the application
+      - Upload history tracked per user with stats dashboard
   - Deploy workflow:
 
     # from /mnt/d/Duplicate/Wheat_detection/server
@@ -89,10 +97,18 @@ Once you change any files (frontend, backend, Dockerfile, etc.), the flow is:
       --allow-unauthenticated \
       --cpu 2 --memory 4Gi \
       --env-vars-file run-env.yaml
-    (run-env.yaml stores STORAGE_BACKEND=gcs, bucket names, GCS_MAKE_PUBLIC=true, etc.)
-    (run-env.yaml stores STORAGE_BACKEND=gcs, bucket names, GCS_MAKE_PUBLIC=true, etc.)
+    (run-env.yaml stores STORAGE_BACKEND=gcs, bucket names, GCS_MAKE_PUBLIC=true, FIREBASE_PROJECT_ID, etc.)
   - Logs: gcloud run services logs read wheat-web --region us-central1 --limit 50.
+  - **Authentication Setup:**
+      - See server/DEPLOY_AUTH.md for complete deployment guide
+      - Deploy Firestore rules: `firebase deploy --only firestore:rules`
+      - Grant service account Firebase permissions (see DEPLOY_AUTH.md)
   - Next steps (if needed later):
+      - Add email verification on signup
+      - Implement password reset flow
+      - Add social login (Google/GitHub OAuth)
+      - Create admin dashboard with analytics
+      - Add per-user rate limiting
       - Add a custom domain via gcloud run domain-mappings.
       - If buckets need to be private again, set GCS_MAKE_PUBLIC=false, mount a service-account key for signed URLs.
       - Consider min instances or CI/CD if traffic grows.

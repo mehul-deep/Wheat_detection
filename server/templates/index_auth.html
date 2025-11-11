@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Wheat Health Insight</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f3f6fb;
+      --card-bg: #ffffff;
+      --border: #d9e2ec;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --accent: #10b981;
+      --text: #0f172a;
+      --muted: #52627a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Inter", "Segoe UI", sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f4f9ff 0%, #e0f2ff 100%);
+      color: var(--text);
+      padding: 32px 16px;
+    }
+    .topbar {
+      max-width: 1200px;
+      margin: 0 auto 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    .user-details {
+      display: flex;
+      flex-direction: column;
+    }
+    .user-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .user-email {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .logout-btn {
+      padding: 8px 16px;
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .logout-btn:hover {
+      background: rgba(239, 68, 68, 0.15);
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 40px 48px;
+      box-shadow: 0 40px 80px -40px rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(37, 99, 235, 0.12);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 55%);
+      pointer-events: none;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 2.6rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+    h2 {
+      margin: 0 0 16px;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    p.description {
+      margin: 12px 0 28px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 1rem;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent);
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    .status-pill.offline {
+      background: rgba(226, 232, 240, 0.8);
+      color: #64748b;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .upload-label {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+      background: rgba(241, 245, 249, 0.6);
+      transition: border-color 0.2s ease, transform 0.2s ease;
+      cursor: pointer;
+    }
+    .upload-label:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+    .upload-label strong { display: block; margin-bottom: 6px; }
+    .upload-label span { color: var(--muted); font-size: 0.9rem; }
+    input[type="file"] { display: none; }
+    button {
+      border: none;
+      background: linear-gradient(135deg, var(--primary), #3b82f6);
+      color: #fff;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 16px 30px -18px rgba(37, 99, 235, 0.9);
+    }
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+    .meta {
+      margin-top: 24px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .meta strong { color: var(--text); }
+    .history-card {
+      height: fit-content;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-box {
+      padding: 16px;
+      background: rgba(241, 245, 249, 0.6);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .history-item {
+      padding: 14px;
+      background: rgba(248, 250, 252, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .history-item:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+    }
+    .history-date {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .history-filename {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .history-detections {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .empty-history {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.58);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      z-index: 999;
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .loading-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .loading-overlay .content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .spinner {
+      width: 52px;
+      height: 52px;
+      border: 4px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+      .history-card {
+        max-height: none;
+      }
+    }
+    @media (max-width: 640px) {
+      .card { padding: 28px 24px; }
+      .upload-label { padding: 24px; }
+      .topbar {
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="user-info">
+      <div class="user-avatar" id="user-avatar"></div>
+      <div class="user-details">
+        <div class="user-name" id="user-name">Loading...</div>
+        <div class="user-email" id="user-email"></div>
+      </div>
+    </div>
+    <button class="logout-btn" id="logout-btn">Logout</button>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <h1>Wheat Health Insight</h1>
+      <p class="description">
+        Upload a field image to segment wheat heads and highlight diseased regions. Our pipeline fuses Attention U-Net masks with YOLO detections to deliver per-head health statistics.
+      </p>
+      {% if yolo_enabled %}
+        <div class="status-pill">
+          YOLO detections enabled ({{ yolo_model_path }})
+        </div>
+      {% else %}
+        <div class="status-pill offline">
+          YOLO detections disabled
+        </div>
+      {% endif %}
+
+      <form id="upload-form" method="POST" action="/predict" enctype="multipart/form-data">
+        <input type="hidden" id="id-token-input" name="idToken" value="">
+        <label class="upload-label" for="image-input">
+          <strong>Choose an image or drag it here</strong>
+          <span>Supported formats: JPG, PNG, TIFF - Max size: 20 MB</span>
+        </label>
+        <input id="image-input" type="file" name="image" accept="image/*" required>
+        <div id="preview-wrapper" style="display:none; margin-top:10px; border:1px solid rgba(209,213,219,0.6); border-radius:14px; overflow:hidden; background:rgba(248,250,252,0.7);">
+          <img id="preview-image" alt="Selected preview" style="width:100%; display:block;">
+        </div>
+        <button id="submit-btn" type="submit">Predict</button>
+      </form>
+
+      <div class="meta">
+        <p>Segmentation input size: <strong>{{ config_img_size if config_img_size else "1024" }} px</strong></p>
+      </div>
+    </div>
+
+    <div class="card history-card">
+      <h2>Your History</h2>
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-value" id="total-uploads">0</div>
+          <div class="stat-label">Total Uploads</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="total-detections">0</div>
+          <div class="stat-label">Total Detections</div>
+        </div>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="empty-history">No uploads yet. Upload your first image!</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="content">
+      <div class="spinner" role="status" aria-label="Loading"></div>
+      <div style="font-size:1.05rem;font-weight:600;">Processing your image...</div>
+      <div style="font-size:0.9rem;opacity:0.85;margin-top:6px;">Running segmentation and detections. Please wait.</div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+    import { getFirestore, collection, query, where, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAeq4ezECMs11dEWsWIj_HwpDnsBK5osFg",
+      authDomain: "wheat-detection-cb988.firebaseapp.com",
+      projectId: "wheat-detection-cb988",
+      storageBucket: "wheat-detection-cb988.firebasestorage.app",
+      messagingSenderId: "210397855269",
+      appId: "1:210397855269:web:524d5009540b079e56c9cc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('image-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const overlay = document.getElementById('loading-overlay');
+    const uploadLabel = document.querySelector('.upload-label');
+    const previewWrapper = document.getElementById('preview-wrapper');
+    const previewImage = document.getElementById('preview-image');
+
+    let currentUser = null;
+
+    // Check authentication
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      currentUser = user;
+
+      // Update UI with user info
+      const displayName = user.displayName || user.email.split('@')[0];
+      const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      document.getElementById('user-avatar').textContent = initials;
+      document.getElementById('user-name').textContent = displayName;
+      document.getElementById('user-email').textContent = user.email;
+
+      // Load user history
+      await loadHistory(user.uid);
+    });
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+        await fetch('/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    });
+
+    // Load history from Firestore
+    async function loadHistory(userId) {
+      try {
+        const uploadsRef = collection(db, 'uploads');
+        const q = query(
+          uploadsRef,
+          where('userId', '==', userId),
+          orderBy('timestamp', 'desc'),
+          limit(20)
+        );
+        const snapshot = await getDocs(q);
+
+        let totalUploads = 0;
+        let totalDetections = 0;
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
+
+        if (snapshot.empty) {
+          historyList.innerHTML = '<div class="empty-history">No uploads yet. Upload your first image!</div>';
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          totalUploads++;
+          totalDetections += data.detectionCount || 0;
+
+          const item = document.createElement('div');
+          item.className = 'history-item';
+          item.onclick = () => window.location.href = `/result/${data.uid}`;
+
+          const date = new Date(data.timestamp);
+          const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+
+          item.innerHTML = `
+            <div class="history-date">${dateStr}</div>
+            <div class="history-filename">${data.filename}</div>
+            ${data.detectionCount > 0 ? `<div class="history-detections">${data.detectionCount} detections</div>` : ''}
+          `;
+          historyList.appendChild(item);
+        });
+
+        document.getElementById('total-uploads').textContent = totalUploads;
+        document.getElementById('total-detections').textContent = totalDetections;
+
+      } catch (error) {
+        console.error('Error loading history:', error);
+      }
+    }
+
+    // File upload preview
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) {
+        uploadLabel.querySelector('strong').textContent = fileInput.files[0].name;
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = e => {
+          previewImage.src = e.target.result;
+          previewWrapper.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      } else {
+        uploadLabel.querySelector('strong').textContent = 'Choose an image or drag it here';
+        previewWrapper.style.display = 'none';
+        previewImage.src = '';
+      }
+    });
+
+    // Form submission with ID token
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!fileInput.files.length || !currentUser) return;
+
+      overlay.classList.add('active');
+      submitBtn.disabled = true;
+
+      try {
+        const idToken = await currentUser.getIdToken();
+        console.log('[UPLOAD] Got ID token, submitting form');
+
+        // Set the hidden field value
+        document.getElementById('id-token-input').value = idToken;
+
+        // Submit the form normally (server will return HTML result page)
+        form.submit();
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('Failed to get authentication token. Please try again.');
+        overlay.classList.remove('active');
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
