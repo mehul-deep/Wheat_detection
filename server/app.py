@@ -13,6 +13,8 @@ Important:
  - Firebase Authentication required for all routes except /login
 """
 import math
+import io
+import csv
 import os
 import shutil
 import tempfile
@@ -23,7 +25,7 @@ from typing import Optional
 from functools import wraps
 
 import numpy as np
-from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash, session, jsonify
+from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash, session, jsonify, Response
 from werkzeug.utils import secure_filename
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth, firestore
@@ -639,6 +641,72 @@ def view_result(uid):
         print(f"Error loading result: {e}")
         flash("Result not found")
         return redirect(url_for("index"))
+
+
+@app.route("/download_csv/<uid>")
+@require_auth
+def download_csv(uid):
+    """Download detection results as a CSV file."""
+    user_id = session.get('user_id')
+    if not db:
+        flash("Database not available.")
+        return redirect(url_for('view_result', uid=uid))
+
+    try:
+        doc = db.collection('uploads').document(uid).get()
+        if not doc.exists:
+            flash("Result not found.")
+            return redirect(url_for('index'))
+
+        data = doc.to_dict()
+        if data.get('userId') != user_id:
+            flash("Unauthorized access.")
+            return redirect(url_for('index'))
+
+        detections = data.get('yolo_detections', [])
+        if not detections:
+            flash("No detection data to download.")
+            return redirect(url_for('view_result', uid=uid))
+
+        # Create a CSV in-memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Header
+        header = [
+            "label", "confidence", "bbox_x1", "bbox_y1", "bbox_x2", "bbox_y2",
+            "wheat_pixels", "disease_pixels", "patch_pixels",
+            "disease_fraction_bbox", "disease_fraction_wheat", "wheat_fraction_bbox"
+        ]
+        writer.writerow(header)
+
+        # Data rows
+        for det in detections:
+            bbox = det.get('bbox', [None, None, None, None])
+            row = [
+                det.get('label'),
+                det.get('confidence'),
+                bbox[0], bbox[1], bbox[2], bbox[3],
+                det.get('wheat_pixels'),
+                det.get('disease_pixels'),
+                det.get('patch_pixels'),
+                det.get('disease_fraction_bbox'),
+                det.get('disease_fraction_wheat'),
+                det.get('wheat_fraction_bbox'),
+            ]
+            writer.writerow(row)
+
+        output.seek(0)
+        return Response(
+            output,
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment;filename=detections_{uid}.csv"}
+        )
+
+    except Exception as e:
+        print(f"Error generating CSV for {uid}: {e}")
+        flash("Could not generate CSV file.")
+        return redirect(url_for('view_result', uid=uid))
 
 
 @app.route("/uploads/<uid>/<filename>")
