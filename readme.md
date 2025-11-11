@@ -5,6 +5,11 @@
 5. http://localhost:5000
 
 
+> ok now I can see under firestore database, but my total uploads and total detections still 0 on the 
+https://wheat-web-795033415293.us-central1.run.app 
+
+● Great! The data is being saved to Firestore now. The issue is that the frontend isn't displaying it. 
+
 
 
 
