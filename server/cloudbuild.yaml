@@ -1,0 +1,10 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - 'build'
+  - '--no-cache'
+  - '-t'
+  - 'gcr.io/$_PROJECT_ID/wheat-detection-app:$_IMAGE_TAG'
+  - '.'
+images:
+- 'gcr.io/$_PROJECT_ID/wheat-detection-app:$_IMAGE_TAG'

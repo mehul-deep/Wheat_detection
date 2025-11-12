@@ -12,6 +12,19 @@ gcloud run deploy wheat-detection-app --image gcr.io/$(gcloud config get-value p
      --platform managed --allow-unauthenticated --memory=2Gi
 
 
+    1     export IMAGE_TAG=$(date +%s)
+
+   2. Build the image (using the new no-cache configuration):
+   1     gcloud builds submit --config cloudbuild.yaml --substitutions=_PROJECT_ID=$(gcloud config get-value project),_IMAGE_TAG=$IMAGE_TAG
+
+   3. Deploy the new image:
+
+   1     gcloud run deploy wheat-detection-app --image gcr.io/$(gcloud config get-value project)/wheat-detection-app:$IMAGE_TAG --region 
+     us-central1 --platform managed --allow-unauthenticated --memory=2Gi
+
+
+
+
 
 Gemini Summary:
 Project: Wheat Disease Detection Web App
